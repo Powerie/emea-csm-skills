@@ -33,3 +33,21 @@ Examples:
 - Imminent churn watch
 - Top 5 prioritised recommendations with suggested next actions
 - Graduation pipeline status
+
+---
+
+### `merchant-onboarding-report`
+Generates a branded best practice report for a merchant that has launched on Shopify. Covers current product activation status and post-activation optimisation across Shopify Payments, Shop Pay, B2B, Retail/POS, Markets, Shipping, Capital, and Balance. Includes case studies from comparable merchants. Output is a Google Slides deck styled using the merchant's own design.md.
+
+**Usage:** `/merchant-onboarding-report [merchant domain or name]`
+
+Examples:
+- `/merchant-onboarding-report pandalondon.com`
+- `/merchant-onboarding-report Panda London`
+
+**Output includes:**
+- Branded Google Slides deck (cover, activation status, product-by-product recommendations, case studies, next steps)
+- Product activation gap analysis
+- Per-product best practice recommendations with quick wins and first steps
+- Case studies from similar merchants pulled from Scout and sales call transcripts
+- Chat summary with deck link, top 3 recommendations, and data gaps noted
