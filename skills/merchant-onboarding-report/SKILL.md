@@ -1,248 +1,308 @@
 ---
 name: merchant-onboarding-report
-description: "Generates a branded best practice report for new merchant onboarding — activation status, post-activation optimisation across Shopify Payments, Shop Pay, B2B, Retail/POS, and more, with case studies from similar merchants. Styled using the merchant's design.md. Output is a Google Slides deck."
+description: "Generates a branded HTML best practice report for a Shopify Plus merchant — explains their CS team, covers their full platform stack by theme, delivers a Shopify Payments deep dive (Shop Pay, SPI, multi-currency, LPMs, wallets), benchmarks them against peers, and ranks opportunities by impact. Output is a self-contained HTML quick-site styled with the merchant's design.md."
 ---
 
 # Merchant Onboarding Report
 
-Produces a branded, CS-ready best practice report for a merchant that has launched on Shopify. Covers current activation status, product-by-product optimisation recommendations, and case studies from comparable merchants. Styled using the merchant's live design.md.
+Produces a branded, merchant-facing HTML report. Tone: calm, considered, practical — no jargon, no urgency. Structured like a trusted advisor review, not a sales deck.
 
 ## Arguments
 
-The user must pass a **merchant domain or name** (e.g., `/merchant-onboarding-report pandalondon.com` or `/merchant-onboarding-report Panda London`).
-
-If no argument is provided, ask the user for the merchant domain before proceeding.
-
-Store as `{merchant_domain}` (normalise to domain format, e.g. `pandalondon.com`).
+The user must pass a **merchant domain or name** (e.g., `/merchant-onboarding-report pandalondon.com`).
+If no argument is provided, ask for the merchant domain before proceeding.
+Store as `{merchant_domain}` and `{merchant_name}`.
 
 ---
 
 ## Steps
 
-Run steps 1–4 in parallel, then compile into the deck.
+Run steps 1–5 in parallel, then compile into the HTML report.
 
 ### 1. Fetch merchant design.md
 
 Fetch: `https://designmd.quick.shopify.io/{merchant_domain}`
 
-Extract and store:
-- `{primary_color}` — primary brand colour (hex)
-- `{secondary_color}` — secondary/accent colour (hex)
-- `{neutral_color}` — background/neutral colour (hex)
-- `{on_surface_color}` — text colour (hex)
-- `{headline_font}` — headline font family
-- `{body_font}` — body font family
-- `{brand_aesthetic}` — one-sentence aesthetic description
-- `{merchant_logo_url}` — logo URL if present
-- `{deck_hint}` — deck styling guidance if present
-- `{voice_tone}` — brand voice/tone
+Extract:
+- `{primary}`, `{secondary}`, `{neutral}`, `{surface}`, `{on_surface}`, `{muted}` — hex colours
+- `{headline_font}`, `{body_font}` — font families
+- `{logo_url}` — brand logo URL
+- `{deck_hint}` — styling guidance
+- `{voice_tone}` — brand voice description
+- `{aesthetic}` — one-line brand aesthetic
 
-If the design.md fetch fails, use Shopify brand defaults:
-- primary: `#008060`, secondary: `#5C6AC4`, neutral: `#F6F6F1`, on-surface: `#202223`
-- headline: `ShopifySans`, body: `ShopifySans`
+If fetch fails, use Shopify defaults: primary `#008060`, neutral `#F6F6F1`, on-surface `#202223`.
 
 ### 2. Pull merchant data
 
-Call `search_data_tool` with dataset `Shops`.
-Filter: `tolower(myshopify_domain) eq '{merchant_domain}'` OR `contains(tolower(myshopify_domain), '{merchant_name}')`
-Select: `shop_id, myshopify_domain, plan_name, gmv_usd_l365d, revenue_l12m, risk_score_label, cs_health_score, msm_name, created_at`
-
-Call `search_data_tool` with dataset `Accounts`.
-Filter: `contains(tolower(account_name), '{merchant_name}')`
-Select: `account_name, msm_name, gmv_usd_l365d, risk_score_label, cs_health_score, active_products`
+Call `search_data_tool` with dataset `Accounts`:
+Filter: `contains(tolower(domain), '{merchant_domain}')`
+Select: `account_name, msm_name, gmv_usd_l365d, revenue_l12m, gmv_growth_yearly, adopted_products, eligible_products, b2b_fit_score, d2c_fit_score, retail_fit_score, is_b2b, is_d2c, is_retail, country, industry, employee_count, account_id, banff_risk_level`
 
 Call `search_salesforce_tool`:
 ```sql
-SELECT Id, Name, BillingCountry, Industry, AnnualRevenue,
-       NumberOfEmployees, Description
+SELECT Id, Name, BillingCountry, Industry, AnnualRevenue, NumberOfEmployees
 FROM Account
 WHERE RecordType.Name = 'Merchant'
 AND Name LIKE '%{merchant_name}%'
 LIMIT 1
 ```
 
-Store: GMV, plan, health score, active products, account ID, country.
+Store: `{gmv}`, `{plan}`, `{msm_name}`, `{country}`, `{adopted_products}`, `{eligible_products}`, `{risk_level}`.
 
-### 3. Assess product activation
+### 3. Map product activation + peer benchmarks
 
-Using `active_products` from step 2, map activation status for each product area:
+Using `adopted_products` and `eligible_products`, build two lists:
+- `{active_products}` — confirmed adopted
+- `{gap_products}` — eligible but not yet adopted
 
-| Product | Active? | Signal to check |
-|---|---|---|
-| Shopify Payments | ✅ / ❌ | `active_products` contains 'payments' |
-| Shop Pay | ✅ / ❌ | `active_products` contains 'shop_pay' |
-| B2B | ✅ / ❌ | `active_products` contains 'b2b' |
-| Retail / POS | ✅ / ❌ | `active_products` contains 'pos' |
-| Shopify Markets | ✅ / ❌ | `active_products` contains 'markets' |
-| Shopify Shipping | ✅ / ❌ | `active_products` contains 'shipping' |
-| Shopify Capital | ✅ / ❌ | `active_products` contains 'capital' |
-| Shopify Balance | ✅ / ❌ | `active_products` contains 'balance' |
+**Shopify Payments deep-dive checklist** (check each independently):
 
-If `active_products` is unavailable, mark all as unknown and note the gap.
+| Check | How to assess |
+|---|---|
+| Shopify Payments active | In `adopted_products` |
+| Shop Pay enabled | In `adopted_products` |
+| Shop Pay Instalments (SPI) | In `adopted_products` — separate from Shop Pay |
+| Apple Pay / Google Pay | Infer from Payments being active — flag for verification |
+| Multi-currency via Markets | Check `adopted_products` for 'Markets' |
+| Local payment methods configured | Flag if Markets is active but LPMs not confirmed |
+| Fraud protection configured | Flag for CSM to verify in admin |
+| Payout schedule optimised | Flag for CSM to verify |
 
-Build two lists:
-- `{activated_products}` — confirmed active
-- `{gap_products}` — not yet active (priority recommendations)
+**Local payment methods by market (flag which apply for this merchant's country/markets):**
+- UK: Shop Pay, Apple Pay, Google Pay, Klarna, Clearpay
+- DE/AT: SOFORT, Giropay, Klarna
+- FR: Carte Bancaire, PayPal
+- NL/BE: iDEAL, Bancontact
+- US: Shop Pay Instalments, Affirm, PayPal, Venmo
+
+**Peer benchmark percentages** (use these fixed benchmarks for Plus EMEA cohort):
+- Shop Pay: 91%
+- Shopify Flow: 97%
+- Launchpad: 73%
+- Plus Store Operations: 98%
+- Search & Discovery: 87%
+- Sidekick: 78%
+- Shopify Email: 70%
+- B2B: 34%
+- Markets: 58%
+- Shopify Payments: 89%
+- Shop Pay Instalments: 41%
+- POS Pro: 19%
+- Shopify Magic: 62%
+- Checkout Extensibility: 44%
 
 ### 4. Pull case studies
 
-For each product in `{gap_products}`, search for 1–2 relevant case studies from comparable merchants.
+For each product in `{gap_products}`, call `search_sales_call_transcripts`:
+- Queries tailored to the product (e.g. for SPI: `['Shop Pay Instalments conversion uplift home brand', 'BNPL merchant success DTC']`)
+- `search_mode: summaries`, `opportunity_result: closed_won`, `limit: 2`
 
-Call `search_sales_call_transcripts` for each product:
-- Queries: e.g. for Shopify Payments: `['merchant activated Shopify Payments results', 'switched to Shopify Payments conversion uplift', 'Shopify Payments success story']`
-- Filter: `plan_name` matching merchant's plan tier; `opportunity_result: 'closed_won'`
-- `search_mode: 'summaries'`
-- `limit: 3`
+Extract per case study: merchant type, product adopted, key outcome, one-line result.
+Anonymise merchant names. If no case study found, mark "Case study coming soon."
 
-Call `search_media_insights` for each product:
-- Keywords: e.g. `'Shopify Payments'`, `'Shop Pay checkout'`, `'POS retail'`
-- `sentiment: 'Positive'`
-- `limit: 3`
+### 5. Build the HTML report
 
-For each case study found, extract:
-- Merchant name (anonymise if needed)
-- Product adopted
-- Key outcome / metric (conversion lift, revenue uplift, time saved)
-- One-line quote if available
+Write a single self-contained HTML file at `~/{merchant_domain}-platform-review.html`.
 
-If no case studies found for a product, note "case study pending" and suggest the CSM adds one manually.
+Apply the merchant's design tokens throughout. Where custom fonts (e.g. Futura) aren't available via Google Fonts, fall back to `'Nunito', 'Century Gothic', Arial, sans-serif` for headlines and `'Nunito', Arial, sans-serif` for body.
 
 ---
 
-## Recommendation logic per product
+## Report structure
 
-For each product in `{gap_products}`, generate a recommendation using this structure:
+### Section 0 — Header
+Co-brand lockup: merchant logo left, Shopify logo right, thin vertical divider between them.
+Stamp: "Shopify Review · {date}" in small muted text.
 
-**Shopify Payments:**
-- Why: eliminate third-party gateway fees, unlock Shop Pay, simplify reconciliation
-- Quick win: estimated fee saving based on GMV (use 0.5–2% uplift assumption)
-- First step: enable in Admin → Settings → Payments
+### Section 1 — Hero
+Dark background (`{on_surface}`). Primary accent bar at bottom (`{primary}`, 6px).
 
-**Shop Pay:**
-- Why: accelerated checkout, higher conversion, access to Shop Pay Instalments
-- Quick win: avg 18% higher checkout conversion for returning customers
-- First step: activate via Shopify Payments settings; add Shop Pay button to product pages
+Headline (large, headline font): a single evocative sentence about where growth comes from — calm, brand-appropriate, not sales-y. Match the merchant's voice tone.
 
-**B2B:**
-- Why: wholesale pricing, company accounts, net payment terms, custom catalogues
-- Quick win: relevant if merchant has trade/wholesale buyers — unlocks new revenue channel
-- First step: assess whether merchant has B2B buyers, then enable B2B on Plus
+Sub-headline: "A look at what your Shopify stack is doing well, where the opportunities are, and the moves that pay back fastest."
 
-**Retail / POS:**
-- Why: unified inventory, in-person sales, omnichannel reporting
-- Quick win: relevant for merchants with physical locations or pop-ups
-- First step: POS Pro trial, hardware review
+KPI row (3 stats):
+- GMV L365D
+- YoY GMV growth %
+- Products active (X / total eligible)
 
-**Shopify Markets:**
-- Why: multi-currency, local domains, duty/tax management for cross-border
-- Quick win: relevant for merchants selling internationally (check Salesforce BillingCountry + GMV distribution)
-- First step: enable Markets in Admin, set up local pricing
+### Section 2 — Your Success Team
 
-**Shopify Shipping:**
-- Why: discounted rates, label printing, returns portal, tracking pages
-- Quick win: avg 10–25% carrier discount vs retail rates
-- First step: enable in Admin → Settings → Shipping and delivery
+Two cards side by side, white background, `{primary}` left border accent.
 
-**Shopify Capital:**
-- Why: revenue-based funding for inventory, marketing, growth
-- Quick win: relevant if merchant has seasonal GMV spikes or growth plans
-- First step: check Capital eligibility in Admin → Finances
+**Card 1 — Your Merchant Success Manager**
+- Heading: "Your Merchant Success Manager"
+- Name: `{msm_name}`
+- Body: "Your MSM is your dedicated Shopify strategist. They help you get more from the platform — finding the features that fit your growth stage, connecting you with the right resources, and meeting regularly to review what's working and what's next. Think of them as a business partner who knows Shopify inside out."
+- Bullet list of what your MSM does:
+  - Proactive platform reviews and quarterly business reviews (QBRs)
+  - Connects you to Shopify experts, partners, and beta programmes
+  - Helps prioritise which features to adopt next and in what order
+  - Your first call when something isn't working the way it should
 
-**Shopify Balance:**
-- Why: business account, cashback rewards, faster payouts
-- Quick win: available for Shopify Payments merchants
-- First step: activate in Admin → Finances → Balance
+**Card 2 — Shopify Plus Support**
+- Heading: "Your Plus Support"
+- Body: "As a Shopify Plus merchant, you have access to priority support — 24/7, with faster response times and agents who know the Plus platform deeply."
+- Bullet list:
+  - 24/7 priority support via chat, email, and phone
+  - Dedicated Plus support agents — not general-tier
+  - Launch Engineer access for major builds, migrations, and peak events
+  - Shopify Plus Academy — exclusive training and certification
+  - Early access to beta features and product previews
+  - Proactive outreach around platform updates that affect your store
+
+### Section 3 — The Headlines
+
+Eyebrow: "The headlines"
+Heading: "Six things worth knowing."
+Sub: "Two strengths, two gaps, two opportunities — a quick read before we go deeper."
+
+Generate 6 headline cards based on the merchant's data:
+- 2 × **Strong** (green tag): things the merchant is doing well, drawn from `{active_products}`, `{gmv_growth}`, or strong fit scores
+- 2 × **Gap** (amber tag): products in `{gap_products}` or low fit-score areas with clear improvement potential
+- 2 × **Opportunity** (blue/primary tag): longer-term moves worth exploring (Markets consolidation, new channels, AI features)
+
+Card format: tag badge + bold headline (one sentence) + two-line explanation.
+
+### Section 4 — The Range
+
+Eyebrow: "The range"
+Heading: "Your stack, grouped by what it does."
+Sub: "Each section shows what's active and a few worth-a-look additions for a brand like yours."
+
+Render theme cards — one per category. For each card:
+- Category name + count of active tools
+- One-line summary of what's live
+- "In your stack" chip row (green chips) — from `{active_products}`
+- "Worth a look" chip row (amber/outline chips) — from `{gap_products}` + general recommendations
+
+Categories to cover:
+1. **Payments & Checkout** — Shopify Payments, Shop Pay, SPI, wallets, BNPL, Checkout Extensibility
+2. **AI & Automation** — Shopify Flow, Launchpad, Sidekick, Shopify Magic
+3. **Search & Discovery** — Search & Discovery app, Combined Listings, Markets
+4. **Marketing & Channels** — Shopify Email, social channels, Shop channel
+5. **Loyalty & Reviews** — Shop Reviews, loyalty apps
+6. **B2B & Operations** — B2B, Plus Store Operations, Matrixify, Order Routing
+7. **Retail & Fulfilment** — POS Pro, Shopify Shipping, fulfilment apps
+8. **Analytics & Data** — Shopify Analytics, Sidekick queries, reporting
+
+### Section 5 — Payments Deep Dive
+
+Eyebrow: "Payments deep dive"
+Heading: "Getting the most from Shopify Payments."
+Sub: "The full checklist — from activation through to multi-currency, wallets, and BNPL."
+
+Dark background section (`{on_surface}`).
+
+**5a — Activation checklist**
+Visual checklist (tick/cross/warning icon per item):
+- Shopify Payments active
+- Shop Pay enabled
+- Shop Pay Instalments (SPI) active
+- Apple Pay enabled
+- Google Pay enabled
+- Multi-currency via Markets
+- Local payment methods configured for your markets
+- Fraud protection configured
+- Payout schedule reviewed
+
+**5b — Shop Pay Instalments spotlight**
+Card with `{secondary}` accent. Content:
+- "SPI lets customers spread the cost of larger purchases — no extra cost to you, no risk. For merchants selling premium products (high AOV), it directly reduces purchase hesitation."
+- Stat: "Merchants in home, lifestyle and premium DTC categories typically see conversion uplift on high-AOV items after enabling SPI."
+- First step: Enable in Admin → Settings → Payments → Buy now, pay later
+
+**5c — Multi-currency & local payment methods**
+Two-column layout:
+- Left: Explain Shopify Markets multi-currency — single storefront, local pricing, local checkout currency, automatic FX
+- Right: LPM grid by market (show which LPMs are available for the merchant's active/target markets based on their country data)
+
+**5d — Wallets**
+Three wallet cards (Apple Pay, Google Pay, Shop Pay) — each with: what it is, who uses it, why it converts better on mobile. Stat where available (e.g. "Shop Pay has a 91% peer adoption rate among similar Plus merchants").
+
+### Section 6 — Peer Adoption
+
+Eyebrow: "Adoption vs peers"
+Heading: "How your stack compares to similar Plus merchants."
+Sub: "Bars show % of comparable EMEA Plus merchants running each tool. The marker shows your status."
+
+Render horizontal bar chart rows for each benchmark product. Three statuses:
+- **In your stack** — `{primary}` marker, green label
+- **Worth considering** — amber/warning marker and label
+- **Covered by alternative** — muted marker and label
+
+Use the fixed benchmark percentages from Step 3.
+
+### Section 7 — Top 5 Opportunities
+
+Eyebrow: "Top five"
+Heading: "The opportunities ranked by impact."
+Sub: "Each paired with an effort estimate and, where relevant, an AI play."
+
+Generate 5 ranked opportunities from `{gap_products}` and platform analysis. For each:
+- Rank number (large, `{primary}`)
+- Bold headline
+- 2–3 sentence explanation
+- Pill tags: impact level (High/Medium/Low), effort level (High/Medium/Low)
+- AI play (optional): how Sidekick or Shopify Magic could support this
+
+### Section 8 — AI Plays
+
+Eyebrow: "AI plays"
+Heading: "What's running, and what's still on the shelf."
+Sub: "The AI surfaces inside Shopify you can use without leaving the platform."
+
+Two columns:
+- **Already running** (light background): AI features confirmed active
+- **Worth switching on** (dark `{on_surface}` background): highest-leverage untapped AI features
+
+AI features to reference: Sidekick (admin Q&A, analytics, segment building), Shopify Magic (product descriptions, image alt-text, email subject lines, theme copy), Search & Discovery (semantic search), Shop Reviews (AI moderation)
+
+### Section 9 — Best Practices
+
+Eyebrow: "Best practices"
+Heading: "Habits that work for merchants like you."
+Sub: "Drawn from how the strongest {industry} Plus merchants run their stacks."
+
+Generate 6–7 best practice bullets tailored to the merchant's industry and product mix. Make them specific and actionable — not generic tips.
+
+### Section 10 — Next Steps
+
+Dark background (`{on_surface}`). Eyebrow: "Next steps". Heading: "What we'll do together."
+Sub: "A short, practical list. A sensible order to take them in."
+
+Numbered list (5–6 items) — collaborative tone, first-person plural ("we'll"). Each step references a specific opportunity from Section 7.
+
+Final line: "We'll reconvene in six weeks to review signal and prioritise the next two moves."
+
+### Footer
+Co-brand lockup (mini), date, "prepared with care" — quiet and understated.
 
 ---
 
-## Build the Google Slides deck
+## File output
 
-Create a new Google Slides presentation titled: `{Merchant Name} — Shopify Platform Review — {today's date}`
+Save to: `~/{merchant_domain}-platform-review.html`
+Open in browser: `open ~/{merchant_domain}-platform-review.html`
 
-Use `create_file` with `file_type: presentation`.
-
-Then use `batch_workspace_operations` with service `slides` to build the following slides. Apply `{primary_color}`, `{secondary_color}`, `{neutral_color}`, `{on_surface_color}` from the merchant's design.md throughout. Use `{headline_font}` for titles and `{body_font}` for body text where possible (fall back to Arial if custom fonts are unavailable in Slides).
-
-### Slide structure
-
-**Slide 1 — Cover**
-- Background: `{neutral_color}`
-- Merchant logo (if `{merchant_logo_url}` available) top-left
-- Shopify logo top-right with thin vertical divider between them
-- Headline (Futura-Heavy or headline font, large): `{Merchant Name} × Shopify`
-- Subheadline: `Platform Optimisation Review`
-- Date bottom-right in muted text
-- Accent bar at bottom: `{primary_color}` full-width, height 8px
-
-**Slide 2 — Where You Are Today**
-- Title: `Your Platform Today`
-- Left panel (60%): activation status table — two columns (Product | Status), use ✅ for active, ⬜ for not yet active. Style active rows with `{primary_color}` chip/badge.
-- Right panel (40%): key stats — GMV L365D, plan, health score, days since launch
-- Background: white; section header bar: `{primary_color}`
-
-**Slide 3 — Activation Highlights**
-- Title: `What's Working Well`
-- One card per activated product (max 4 per slide, overflow to next slide)
-- Card style: white card, `{primary_color}` icon/accent, product name bold, one-line benefit
-- Background: `{neutral_color}`
-
-**Slide 4–N — Optimisation Opportunities (one slide per gap product)**
-For each product in `{gap_products}`, create one slide:
-- Title: product name (e.g., `Shopify Payments`)
-- Left column:
-  - Subheading: `Why it matters`
-  - 2–3 bullet benefits
-  - Subheading: `Quick win`
-  - One metric or outcome
-  - Subheading: `First step`
-  - One clear action
-- Right column: case study box
-  - Heading: `Merchant Story` (or `Case Study`)
-  - Merchant name, product, key outcome, quote if available
-  - Style: `{secondary_color}` background, `{on_surface_color}` text
-- Slide accent: `{primary_color}` left border bar (8px wide, full height)
-- Background: white
-
-**Slide N+1 — Recommended Next Steps**
-- Title: `Your Next 30 Days`
-- Numbered list (max 5 items), one per gap product — action + owner (CSM name from step 2)
-- Timeline visual: simple horizontal bar with 3 phases (Week 1 / Week 2–3 / Week 4)
-- Call to action: `[CSM name] will follow up on [date]`
-- Background: `{primary_color}`; text: white or `{on_surface_color}` depending on contrast
-
-**Slide N+2 — Appendix: Resources**
-- Title: `Helpful Resources`
-- Links to Shopify Help docs for each gap product
-- Background: `{neutral_color}`; muted text
-
-After creating all slides, return the Google Slides URL.
-
----
-
-## Output summary (in chat)
-
-After building the deck, post a brief summary:
-
+Then post a brief chat summary:
 ```
-# Merchant Onboarding Report — {Merchant Name}
+# Platform Review — {Merchant Name}
 
-**Deck:** [Google Slides link]
+**File:** ~/{merchant_domain}-platform-review.html
 
-## Activation Status
+## Activation snapshot
 ✅ Active ({n}): {list}
-⬜ Not yet active ({n}): {list}
+⬜ Gap ({n}): {list}
 
-## Top 3 Recommendations
-1. {Product} — {one-line rationale}
-2. {Product} — {one-line rationale}
-3. {Product} — {one-line rationale}
+## Payments checklist
+[tick/cross per item]
 
-## Case Studies Found
-{Product}: {merchant} — {outcome}
-{Product}: case study pending
-
-## Data gaps
-{any missing data noted here}
+## Top 3 opportunities
+1. ...
+2. ...
+3. ...
 ```
 
-If any step fails, note it and continue. Do not fail silently.
+If any data source is unavailable, note it in the summary and continue. Do not fail silently.
