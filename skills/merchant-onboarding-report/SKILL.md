@@ -19,19 +19,29 @@ Store as `{merchant_domain}` and `{merchant_name}`.
 
 Run steps 1–5 in parallel, then compile into the HTML report.
 
-### 1. Fetch merchant design.md
+### 1. Extract merchant design tokens
 
-Fetch: `https://designmd.quick.shopify.io/{merchant_domain}`
+**Do not use `designmd.quick.shopify.io`** — that service requires Shopify internal IAP auth and is not accessible from Claude Code.
 
-Extract:
-- `{primary}`, `{secondary}`, `{neutral}`, `{surface}`, `{on_surface}`, `{muted}` — hex colours
-- `{headline_font}`, `{body_font}` — font families
-- `{logo_url}` — brand logo URL
-- `{deck_hint}` — styling guidance
-- `{voice_tone}` — brand voice description
-- `{aesthetic}` — one-line brand aesthetic
+Instead, extract tokens directly from the merchant's site:
 
-If fetch fails, use Shopify defaults: primary `#008060`, neutral `#F6F6F1`, on-surface `#202223`.
+**Step 1a — Fetch the homepage and theme CSS:**
+- `WebFetch https://{merchant_domain}` — extract logo URL, brand tone, aesthetic from page copy
+- From the HTML, find the main theme CSS link (e.g. `/cdn/shop/t/{n}/assets/app.css`) and fetch it
+- Parse hex colours by frequency — the most-used non-black/white hex is typically `{primary}`
+
+**Step 1b — Assign tokens:**
+- `{primary}` — most prominent accent/CTA colour from CSS (not black, white, or near-grey)
+- `{secondary}` — second distinct accent colour, or a lightened tint of primary if only one accent found
+- `{neutral}` — lightest background colour (near-white, e.g. `#f8f8f8` or `#f4f4f0`)
+- `{on_surface}` — darkest text colour (near-black, e.g. `#111111` or `#151515`)
+- `{muted}` — mid-grey used for secondary text
+- `{headline_font}`, `{body_font}` — from `font-family` declarations in CSS
+- `{logo_url}` — from `<img>` or `<svg>` in site header, prefer PNG with transparent background
+
+**Step 1c — Infer brand voice and aesthetic from homepage copy.** One sentence each.
+
+If CSS fetch fails, use Shopify defaults: primary `#008060`, neutral `#F6F6F1`, on-surface `#202223`.
 
 ### 2. Pull merchant data
 
