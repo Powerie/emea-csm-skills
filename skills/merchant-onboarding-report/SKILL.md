@@ -306,9 +306,10 @@ After writing the HTML file, deploy it as a live URL using the `quick` CLI.
 DEPLOY_DIR=$(mktemp -d)
 cp ~/{merchant_domain}-platform-review.html "$DEPLOY_DIR/index.html"
 
-# 2. Deploy (--force skips confirmation prompt)
+# 2. Deploy — use script -q /dev/null to provide a pseudo-TTY (required by quick CLI)
 SITE_NAME="{merchant_slug}-platform-review"
-/Users/niamhpower/.local/state/tec/profiles/base/current/global/bin/quick deploy "$DEPLOY_DIR" "$SITE_NAME" --force
+QUICK_BIN=/Users/niamhpower/.local/state/tec/profiles/base/current/global/bin/quick
+script -q /dev/null "$QUICK_BIN" deploy "$DEPLOY_DIR" "$SITE_NAME" --force
 
 # 3. Clean up temp dir
 rm -rf "$DEPLOY_DIR"
@@ -316,7 +317,7 @@ rm -rf "$DEPLOY_DIR"
 
 The live URL will be: `https://{merchant_slug}-platform-review.quick.shopify.io`
 
-**If `quick` is not found at that path**, try `quick` directly (it may be on PATH). If the deploy fails due to auth, run `quick auth` first — it opens a browser OAuth flow.
+**If `quick` is not found at that path**, try replacing `$QUICK_BIN` with just `quick` (it may be on PATH). If the deploy fails due to auth, run `quick auth` first — it opens a browser OAuth flow.
 
 **Also** open the local file in browser for immediate preview:
 ```bash
