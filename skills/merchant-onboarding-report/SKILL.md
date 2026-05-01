@@ -288,13 +288,47 @@ Co-brand lockup (mini), date. Footer reads: "Prepared by **Shopify Customer Succ
 ## File output
 
 Save to: `~/{merchant_domain}-platform-review.html`
-Open in browser: `open ~/{merchant_domain}-platform-review.html`
+
+---
+
+### Step 6 — Deploy to Quick site
+
+After writing the HTML file, deploy it as a live URL using the `quick` CLI.
+
+**Derive the site name** — strip the TLD and replace dots/special chars with hyphens:
+- `quatropi.com` → `quatropi-platform-review`
+- `panda-london.com` → `panda-london-platform-review`
+- `my.brand.co.uk` → `my-brand-platform-review` (drop `.co.uk`, replace inner dots)
+
+**Commands:**
+```bash
+# 1. Create a temp deploy directory with index.html
+DEPLOY_DIR=$(mktemp -d)
+cp ~/{merchant_domain}-platform-review.html "$DEPLOY_DIR/index.html"
+
+# 2. Deploy (--force skips confirmation prompt)
+SITE_NAME="{merchant_slug}-platform-review"
+/Users/niamhpower/.local/state/tec/profiles/base/current/global/bin/quick deploy "$DEPLOY_DIR" "$SITE_NAME" --force
+
+# 3. Clean up temp dir
+rm -rf "$DEPLOY_DIR"
+```
+
+The live URL will be: `https://{merchant_slug}-platform-review.quick.shopify.io`
+
+**If `quick` is not found at that path**, try `quick` directly (it may be on PATH). If the deploy fails due to auth, run `quick auth` first — it opens a browser OAuth flow.
+
+**Also** open the local file in browser for immediate preview:
+```bash
+open ~/{merchant_domain}-platform-review.html
+```
 
 Then post a brief chat summary:
 ```
 # Platform Review — {Merchant Name}
 
-**File:** ~/{merchant_domain}-platform-review.html
+**Local file:** ~/{merchant_domain}-platform-review.html
+**Live URL:** https://{merchant_slug}-platform-review.quick.shopify.io
 
 ## Platform health
 Overall score: {X.X}/10
